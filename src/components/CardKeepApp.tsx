@@ -12,6 +12,7 @@ import {
 } from "@/lib/contacts";
 import { dataURLParts, fileToDataURL, processImage } from "@/lib/image";
 import { exportAllVCards, saveToPhone } from "@/lib/vcard";
+import { readCardLocally } from "@/lib/localOcr";
 import {
   GOOGLE_CLIENT_ID, createGoogleContact, findDuplicate, getGoogleToken, googleContactUrl,
   isGoogleConnected, signOutGoogle, updateGoogleContact,
@@ -42,6 +43,8 @@ export default function CardKeepApp() {
   const chooseRef = useRef<HTMLInputElement>(null);
   const sideRef = useRef<Side>("front");
   const extractSeq = useRef(0);
+  const localMode = useRef(false);
+  const [freeMode, setFreeMode] = useState(false);
 
   useEffect(() => {
     setContacts(loadContacts());
@@ -75,16 +78,32 @@ export default function CardKeepApp() {
     setExtracting(true);
     setExtractError(null);
     try {
-      const images = [frontImg, backImg].filter(Boolean).map((d) => dataURLParts(d!));
-      const res = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (seq !== extractSeq.current) return;
-      if (!res.ok) throw new Error(body.error || "Couldn't read the card.");
-      const card = body.contact as ExtractedCard;
+      const srcs = [frontImg, backImg].filter(Boolean) as string[];
+      let card: ExtractedCard | null = null;
+      if (!localMode.current) {
+        const res = await fetch("/api/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ images: srcs.map(dataURLParts) }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (seq !== extractSeq.current) return;
+        if (body.code === "NO_KEY") {
+          localMode.current = true;
+          setFreeMode(true);
+        } else if (!res.ok) {
+          throw new Error(body.error || "Couldn't read the card.");
+        } else {
+          card = body.contact as ExtractedCard;
+        }
+      }
+      if (!card) {
+        card = await readCardLocally(srcs);
+        if (seq !== extractSeq.current) return;
+        if (!card.name && !card.emails.length && !card.mobiles.length && !card.phones.length) {
+          throw new Error("Couldn't read text on this card. Try a sharper, well-lit photo, or type the details.");
+        }
+      }
       setForm((f) => ({
         ...f,
         name: card.name || "",
@@ -357,8 +376,13 @@ export default function CardKeepApp() {
                     {extracting && (
                       <div className="flex items-center gap-3 rounded-xl bg-[var(--brand-soft)] p-3 text-sm font-medium text-[var(--brand)]" role="status">
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        Reading card…
+                        {freeMode ? "Reading card on your device… (first scan takes a few seconds)" : "Reading card…"}
                       </div>
+                    )}
+                    {freeMode && !extracting && !extractError && (
+                      <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+                        Read on your device (free mode). Please double-check the details before saving.
+                      </p>
                     )}
                     {extractError && (
                       <div className="rounded-xl bg-[var(--danger-soft)] p-3 text-sm text-[var(--danger)]" role="alert">

@@ -36,10 +36,8 @@ type AllowedType = (typeof ALLOWED_TYPES)[number];
 
 export async function POST(req: Request) {
   if (!process.env.ANTHROPIC_API_KEY) {
-    return Response.json(
-      { error: "Server is missing ANTHROPIC_API_KEY. Add it in your environment variables." },
-      { status: 500 },
-    );
+    // No key configured: the browser falls back to free on-device reading
+    return Response.json({ error: "AI reading is not configured.", code: "NO_KEY" }, { status: 503 });
   }
 
   let images: IncomingImage[];

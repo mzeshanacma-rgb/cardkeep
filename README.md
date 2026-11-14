@@ -6,7 +6,11 @@ Scan visiting/business cards with your phone camera (or upload a photo). The det
 - **Google Contacts**: through the Google People API, with a "CardKeep" label and a duplicate check
 - **CardKeep's own list**: search, filter by event, export everything as `.vcf` or CSV (Excel)
 
-Built with Next.js 15, Tailwind CSS and the Claude API (vision) for reading cards.
+Built with Next.js 15 and Tailwind CSS.
+
+**Two ways to read cards:**
+- **Free mode (default, no API key):** text is read on the phone itself with Tesseract (open-source OCR), then sorted into fields. Nothing is uploaded. Works best on clear, flat, well-lit cards.
+- **AI mode (optional):** add `ANTHROPIC_API_KEY` in Vercel and the app automatically uses Claude, which is more accurate on stylish, curved or multi-language cards.
 
 ## How it works
 
@@ -24,7 +28,7 @@ Copy `.env.example` to `.env.local` and fill in:
 
 | Variable | Where to get it |
 |---|---|
-| `ANTHROPIC_API_KEY` | https://console.anthropic.com → API Keys (server-only, never exposed to the browser) |
+| `ANTHROPIC_API_KEY` | *Optional.* https://console.anthropic.com → API Keys. Without it the app uses free on-device reading. |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google Cloud Console (see below) |
 
 ### 2. Google Contacts (OAuth Client ID)
